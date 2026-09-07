@@ -1,15 +1,19 @@
 import { NextResponse } from 'next/server'
 import { desc, eq } from 'drizzle-orm'
-import { db } from '@/lib/db'
+import { db, ensureDb } from '@/lib/db'
 import { qualityBatches } from '@/lib/db/schema'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
+  await ensureDb()
   const batches = await db.select().from(qualityBatches).orderBy(desc(qualityBatches.createdAt)).limit(50)
   return NextResponse.json(batches)
 }
 
 export async function PATCH(request: Request) {
   try {
+    await ensureDb()
     const body = await request.json()
     const batchId = String(body.batchId ?? '').trim()
     const status = body.status === 'approved' ? 'approved' : body.status === 'pnc' ? 'pnc' : ''
@@ -21,6 +25,7 @@ export async function PATCH(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await ensureDb()
     const body = await request.json()
     const batchId = String(body.batchId ?? '').trim()
     const product = String(body.product ?? '').trim()

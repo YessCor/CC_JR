@@ -3,8 +3,11 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'AquaLab | Control de calidad',
-  description: 'Panel de control de calidad y producto no conforme para planta de detergentes.',
+  title: {
+    default: 'AquaLab | Plataforma operativa',
+    template: '%s',
+  },
+  description: 'Plataforma operativa para planta de detergentes: control de calidad y más módulos.',
   generator: 'AquaLab',
   icons: {
     icon: [
