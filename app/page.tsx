@@ -21,12 +21,13 @@ const modules: Module[] = [
     available: true,
   },
   {
-    href: '#',
-    title: 'Inventario de insumos',
-    description: 'Existencias de materias primas, alertas de mínimos y consumo por lote de producción.',
+    href: '/logistica',
+    title: 'Logística e inventarios',
+    description:
+      'Inventario de insumos, kardex, pronóstico de demanda con motor predictivo, órdenes de compra automáticas y despachos al CEDI.',
     icon: PackageSearch,
-    tag: 'Próximamente',
-    available: false,
+    tag: 'Disponible',
+    available: true,
   },
   {
     href: '#',
