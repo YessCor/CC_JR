@@ -3,15 +3,40 @@
  *
  * A partir del historial de consumo (movimientos de tipo "salida") estima el uso
  * diario proyectado combinando una media móvil con decaimiento exponencial y la
- * tendencia obtenida por regresión lineal de mínimos cuadrados. Con eso calcula
- * días de cobertura, fecha estimada de quiebre, punto de reorden dinámico y la
- * cantidad sugerida a ordenar.
+ * tendencia obtenida por regresión lineal de mínimos cuadrados. A eso le aplica un
+ * factor de demanda estacional (campaña de detergentes "Gliss"/"Lito", +20–30%
+ * por categoría de insumo). Con eso calcula días de cobertura, fecha estimada de
+ * quiebre, punto de reorden dinámico y la cantidad sugerida a ordenar.
  *
  * Todas las funciones son puras. Los valores `numeric` de la base de datos llegan
  * como string, así que cualquier entrada se normaliza con `Number(...)`.
  */
 
 export const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Factor de demanda estacional: aumento proyectado del consumo por el
+ * lanzamiento / campaña de los detergentes insignia "Gliss" y "Lito".
+ * Los insumos de empaque y aromas (los más ligados a la producción de
+ * producto terminado) reciben el mayor impulso (20–30%).
+ */
+export const SEASONAL_LIFT: Record<string, number> = {
+  tensioactivo: 0.25,
+  builder: 0.2,
+  fragancia: 0.3,
+  colorante: 0.2,
+  conservante: 0.1,
+  envase: 0.3,
+  etiqueta: 0.3,
+  otro: 0.15,
+}
+
+export const SEASONAL_CAMPAIGN = 'Gliss / Lito'
+
+/** Impulso porcentual (0..1) que aplica a un insumo según su categoría. */
+export function seasonalDemandFactor(category: string | null | undefined): number {
+  return SEASONAL_LIFT[category ?? 'otro'] ?? SEASONAL_LIFT.otro
+}
 
 export type MovementLike = {
   type: string
@@ -132,6 +157,7 @@ export function riskLevel(coverageDays: number, leadTimeDays: number): RiskLevel
 export type MaterialForForecast = {
   name: string
   unit: string
+  category?: string | null
   stock: number | string
   safetyStock: number | string
   reorderPoint: number | string | null
@@ -148,6 +174,7 @@ export type ReorderSuggestion = {
   effectiveRop: number
   stockoutDate: string | null
   risk: RiskLevel
+  seasonalFactor: number
   rationale: string
 }
 
@@ -159,7 +186,9 @@ const fmtDate = (d: Date | null): string | null =>
 /** Recomendación completa de reabastecimiento para un material. */
 export function reorderSuggestion(material: MaterialForForecast, movements: MovementLike[]): ReorderSuggestion {
   const series = aggregateDailyUse(movements)
-  const dailyUse = projectedDailyUse(series, material.leadTimeDays)
+  const baseDailyUse = projectedDailyUse(series, material.leadTimeDays)
+  const seasonalFactor = seasonalDemandFactor(material.category)
+  const dailyUse = baseDailyUse * (1 + seasonalFactor)
   const { slope } = linearTrend(series)
   const stock = num(material.stock)
   const coverageDays = daysOfCoverage(stock, dailyUse)
@@ -179,10 +208,14 @@ export function reorderSuggestion(material: MaterialForForecast, movements: Move
   } else {
     const trendNote =
       slope > 0.05 ? ' El consumo viene en aumento.' : slope < -0.05 ? ' El consumo viene a la baja.' : ''
+    const seasonalNote =
+      seasonalFactor > 0.01
+        ? ` Factor estacional por campaña ${SEASONAL_CAMPAIGN}: +${Math.round(seasonalFactor * 100)}% de demanda proyectada.`
+        : ''
     const when = breakDate ? ` Quiebre estimado el ${fmtDate(breakDate)}.` : ''
     rationale =
-      `Uso proyectado ${round(dailyUse)} ${material.unit}/día y lead time de ${material.leadTimeDays} días. ` +
-      `Stock ${round(stock)} ≤ reorden ${round(effectiveRop)} ${material.unit}.${when}${trendNote} ` +
+      `Uso proyectado ${round(dailyUse)} ${material.unit}/día (estacional) y lead time de ${material.leadTimeDays} días. ` +
+      `Stock ${round(stock)} ≤ reorden ${round(effectiveRop)} ${material.unit}.${when}${trendNote}${seasonalNote} ` +
       `Se sugiere ordenar ${quantity} ${material.unit} para cubrir ${REVIEW_PERIOD_DAYS} días tras la reposición.`
   }
 
@@ -196,6 +229,7 @@ export function reorderSuggestion(material: MaterialForForecast, movements: Move
     effectiveRop: round(effectiveRop),
     stockoutDate: breakDate ? breakDate.toISOString() : null,
     risk,
+    seasonalFactor: round(seasonalFactor, 3),
     rationale,
   }
 }

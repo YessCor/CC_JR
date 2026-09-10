@@ -49,6 +49,7 @@ export type EnrichedMaterial = Material & {
   effectiveRop: number
   stockoutDate: string | null
   risk: RiskLevel
+  seasonalFactor: number
   shouldOrder: boolean
   suggestedQty: number
   rationale: string
@@ -64,6 +65,7 @@ export function enrichMaterial(material: Material, movements: MovementLike[]): E
     {
       name: material.name,
       unit: material.unit,
+      category: material.category,
       stock: material.stock,
       safetyStock: material.safetyStock,
       reorderPoint: material.reorderPoint,
@@ -86,6 +88,7 @@ export function enrichMaterial(material: Material, movements: MovementLike[]): E
     effectiveRop: suggestion.effectiveRop,
     stockoutDate: suggestion.stockoutDate,
     risk: suggestion.risk,
+    seasonalFactor: suggestion.seasonalFactor,
     shouldOrder: suggestion.shouldOrder,
     suggestedQty: suggestion.quantity,
     rationale: suggestion.rationale,

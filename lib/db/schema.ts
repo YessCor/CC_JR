@@ -6,9 +6,21 @@ export const qualityBatches = pgTable('quality_batches', {
   product: text('product').notNull(),
   ph: numeric('ph', { precision: 5, scale: 2 }).notNull(),
   density: numeric('density', { precision: 6, scale: 3 }).notNull(),
-  status: text('status').notNull(),
+  status: text('status').notNull(), // approved | pnc
   notes: text('notes'),
-  units: integer('units').notNull().default(1000),
+  units: integer('units').notNull().default(1000), // cajas
+  // Slotting / recepción en CEDI.
+  // pendiente_ubicar | ubicado | no_aplica
+  placementStatus: text('placement_status').notNull().default('pendiente_ubicar'),
+  suggestedAisle: text('suggested_aisle'), // Pasillo: A | B | C
+  suggestedRack: text('suggested_rack'), // Estante 01..08 (con padding)
+  suggestedLevel: text('suggested_level'), // Nivel 1..3
+  slottingCriterion: text('slotting_criterion'),
+  distanceToDispatch: integer('distance_to_dispatch'), // metros a la salida de despachos
+  weightKg: numeric('weight_kg', { precision: 12, scale: 2 }).notNull().default('0'),
+  manufacturedAt: timestamp('manufactured_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  placedAt: timestamp('placed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 

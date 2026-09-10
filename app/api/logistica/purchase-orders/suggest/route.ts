@@ -37,6 +37,7 @@ async function computeSuggestions() {
       risk: forecast.risk,
       coverageDays: forecast.coverageDays,
       stockoutDate: forecast.stockoutDate,
+      seasonalFactor: forecast.seasonalFactor,
       rationale: forecast.rationale,
       hasOpenPo: withOpenPo.has(material.id),
     }))

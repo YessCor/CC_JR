@@ -7,23 +7,32 @@ import {
   ArrowRight,
   Boxes,
   Brain,
+  CalendarDays,
+  CheckCircle2,
   ChevronDown,
   ClipboardList,
   Layers,
   LayoutDashboard,
+  MapPin,
   Menu,
   PackageCheck,
+  PackagePlus,
   Plus,
   RefreshCw,
   Search,
   ShoppingCart,
+  Sparkles,
   Truck,
   Warehouse,
+  Zap,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
 // Tipos que devuelve la API
 // ---------------------------------------------------------------------------
+
+import SlottingGrid from '@/components/slotting-grid'
+import { suggestSlottingEntry, type GoodsKind, type SlottingSuggestion } from '@/lib/slotting'
 
 type Risk = 'critico' | 'alto' | 'medio' | 'ok'
 
@@ -99,6 +108,24 @@ type Shipment = {
 }
 
 type ReadyBatch = { batchId: string; product: string; units: number; createdAt: string }
+
+/** Sugerencia inteligente devuelta por /api/logistica/purchase-orders/suggest. */
+type SmartSuggestion = {
+  materialId: number
+  sku: string
+  name: string
+  unit: string
+  supplier: string | null
+  quantity: number
+  unitCost: number
+  leadTimeDays: number
+  risk: Risk
+  coverageDays: number | 'Infinity'
+  stockoutDate: string | null
+  seasonalFactor: number
+  rationale: string
+  hasOpenPo: boolean
+}
 
 type Overview = {
   kpis: {
@@ -200,6 +227,24 @@ function RiskPill({ risk }: { risk: Risk }) {
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${cls}`}>
       <span className="size-1.5 rounded-full bg-current" />
+      {label}
+    </span>
+  )
+}
+
+/** Nivel de urgencia para el panel de reabastecimiento (Alta / Media / Baja). */
+const URGENCY: Record<Risk, { label: string; cls: string; icon: typeof Zap }> = {
+  critico: { label: 'Alta', cls: 'bg-red-50 text-red-700 ring-red-200', icon: Zap },
+  alto: { label: 'Alta', cls: 'bg-red-50 text-red-700 ring-red-200', icon: Zap },
+  medio: { label: 'Media', cls: 'bg-amber-50 text-amber-700 ring-amber-200', icon: Zap },
+  ok: { label: 'Baja', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200', icon: Zap },
+}
+
+function UrgencyBadge({ risk }: { risk: Risk }) {
+  const { label, cls, icon: Icon } = URGENCY[risk]
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${cls}`}>
+      <Icon className="size-3.5" />
       {label}
     </span>
   )
@@ -475,6 +520,7 @@ export default function LogisticsDashboard() {
                   }}
                   onStatus={(id, status) => mutate('/api/logistica/purchase-orders', 'PATCH', { id, status }, `po-${id}`)}
                   busy={busy}
+                  refresh={load}
                 />
               )}
               {activeNav === 'Despachos' && (
@@ -799,7 +845,18 @@ function MovimientosView({
   busy: string | null
 }) {
   const [form, setForm] = useState({ materialId: '', type: 'salida', quantity: '', reason: '', reference: '' })
+  const [entryKind, setEntryKind] = useState<GoodsKind>('MP')
+  const [productName, setProductName] = useState('')
+  const [expiry, setExpiry] = useState('')
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }))
+
+  const slotting: SlottingSuggestion | null = useMemo(() => {
+    if (form.type !== 'entrada') return null
+    const product =
+      entryKind === 'MP' ? (materials.find((m) => m.id === Number(form.materialId))?.name ?? '') : productName.trim()
+    if (!product) return null
+    return suggestSlottingEntry({ product, kind: entryKind, expiresAt: expiry || null })
+  }, [form.type, form.materialId, entryKind, productName, expiry, materials])
 
   return (
     <div className="space-y-6">
@@ -828,6 +885,89 @@ function MovimientosView({
           <input value={form.quantity} onChange={(e) => set('quantity', e.target.value)} type="number" placeholder={form.type === 'ajuste' ? 'Stock real' : 'Cantidad'} className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" />
           <input value={form.reference} onChange={(e) => set('reference', e.target.value)} placeholder="Referencia (OF, OC…)" className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" />
         </div>
+
+        {form.type === 'entrada' && (
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-2">
+              <span className="text-xs font-semibold text-slate-500">Tipo:</span>
+              <select
+                value={entryKind}
+                onChange={(e) => setEntryKind(e.target.value as GoodsKind)}
+                className="h-9 flex-1 bg-transparent text-sm outline-none focus:border-teal-500"
+              >
+                <option value="MP">Materia Prima / Insumo</option>
+                <option value="PT">Producto Terminado (Gliss / Lito)</option>
+              </select>
+            </div>
+            {entryKind === 'PT' ? (
+              <input
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                placeholder="Producto (ej. Detergente Gliss)"
+                className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-500 sm:col-span-2"
+              />
+            ) : (
+              <input
+                value={expiry}
+                onChange={(e) => setExpiry(e.target.value)}
+                type="date"
+                title="Vencimiento (opcional): activa política FEFO si está próximo"
+                className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-500 sm:col-span-2"
+              />
+            )}
+            {entryKind === 'PT' && (
+              <input
+                value={expiry}
+                onChange={(e) => setExpiry(e.target.value)}
+                type="date"
+                title="Vencimiento (opcional): activa política FEFO si está próximo"
+                className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-500"
+              />
+            )}
+          </div>
+        )}
+
+        {slotting && (
+          <div className="mt-4 overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-600 to-teal-700 text-white">
+            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-100">
+                  <MapPin className="size-4" />
+                  Ubicación Sugerida por Sistema (Slotting)
+                </p>
+                <p className="mt-2 text-2xl font-bold tracking-tight">
+                  Pasillo {slotting.aisle} <span className="text-emerald-200">|</span> Estante {slotting.rack}{' '}
+                  <span className="text-emerald-200">|</span> Nivel {slotting.level}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold ring-1 ring-white/25">
+                    <MapPin className="size-3.5" />
+                    {slotting.zone}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold ring-1 ring-white/25">
+                    <Truck className="size-3.5" />
+                    a {slotting.distanceToDispatch} m de la zona de despacho / producción
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-xl bg-white/10 p-3 ring-1 ring-white/20">
+                <Warehouse className="size-6" />
+              </div>
+            </div>
+            <div className="border-t border-white/15 bg-black/10 px-5 py-3">
+              <p className="text-xs font-semibold text-emerald-50">
+                Criterio: <span className="font-bold">{slotting.criterion}</span>
+              </p>
+            </div>
+            <div className="border-t border-white/15 bg-white/[0.04] p-3">
+              <SlottingGrid
+                slot={slotting}
+                exitLabel={entryKind === 'PT' ? 'Salida\ndespachos' : 'Zona de\nproducción'}
+              />
+            </div>
+          </div>
+        )}
+
         <div className="mt-3 flex items-center gap-3">
           <input value={form.reason} onChange={(e) => set('reason', e.target.value)} placeholder="Motivo (opcional)" className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" />
           <button
@@ -902,12 +1042,14 @@ function ComprasView({
   onSuggest,
   onStatus,
   busy,
+  refresh,
 }: {
   pos: PurchaseOrder[]
   suggestResult: string | null
   onSuggest: () => void
   onStatus: (id: number, status: PurchaseOrder['status']) => void
   busy: string | null
+  refresh: () => void
 }) {
   const NEXT: Partial<Record<PurchaseOrder['status'], { label: string; status: PurchaseOrder['status'] }[]>> = {
     sugerida: [
@@ -921,6 +1063,76 @@ function ComprasView({
     en_transito: [{ label: 'Marcar recibida', status: 'recibida' }],
   }
 
+  const [suggestions, setSuggestions] = useState<SmartSuggestion[]>([])
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true)
+  const [autoBusy, setAutoBusy] = useState<number | null>(null)
+  const [autoResult, setAutoResult] = useState<string | null>(null)
+  const [resetBusy, setResetBusy] = useState(false)
+
+  const loadSuggestions = useCallback(async () => {
+    setSuggestionsLoading(true)
+    try {
+      const response = await fetch('/api/logistica/purchase-orders/suggest')
+      const data = await response.json()
+      setSuggestions(Array.isArray(data) ? data : [])
+    } catch {
+      setSuggestions([])
+    } finally {
+      setSuggestionsLoading(false)
+    }
+  }, [])
+
+  async function resetDemoSuggestions() {
+    setResetBusy(true)
+    setAutoResult(null)
+    try {
+      const response = await fetch('/api/logistica/demo/reorder-reset', { method: 'POST' })
+      if (!response.ok) {
+        setAutoResult('No se pudo restablecer las sugerencias de muestra.')
+        return
+      }
+      setAutoResult('Sugerencias de reabastecimiento restablecidas (stock de muestra a bajo nivel).')
+      await Promise.all([loadSuggestions(), refresh()])
+    } catch {
+      setAutoResult('Error de red al restablecer las sugerencias de muestra.')
+    } finally {
+      setResetBusy(false)
+    }
+  }
+
+  useEffect(() => {
+    loadSuggestions()
+  }, [loadSuggestions])
+
+  async function createAutoOrder(s: SmartSuggestion) {
+    setAutoBusy(s.materialId)
+    setAutoResult(null)
+    try {
+      const response = await fetch('/api/logistica/purchase-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          materialId: s.materialId,
+          quantity: s.quantity,
+          origin: 'ia',
+          status: 'sugerida',
+          rationale: s.rationale,
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        setAutoResult(`No se pudo generar la orden de ${s.name}: ${data.error ?? 'error'}`)
+        return
+      }
+      setAutoResult(`Orden de compra generada: ${data.code} · ${s.name}.`)
+      await Promise.all([loadSuggestions(), refresh()])
+    } catch {
+      setAutoResult('Error de red al generar la orden de compra.')
+    } finally {
+      setAutoBusy(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-teal-100 bg-teal-50/60 p-6">
@@ -932,8 +1144,9 @@ function ComprasView({
             <div>
               <h2 className="text-lg font-bold text-slate-950">Motor predictivo de compras</h2>
               <p className="mt-1 max-w-2xl text-sm text-slate-600">
-                Analiza el consumo histórico de cada insumo, proyecta la demanda del lead time y genera órdenes de
-                compra sugeridas para los que van a quebrar stock.
+                Analiza el consumo histórico de cada insumo, aplica el factor de demanda estacional de la campaña
+                Gliss / Lito y proyecta la demanda del lead time para generar órdenes de compra sugeridas a los que
+                van a quebrar stock.
               </p>
             </div>
           </div>
@@ -942,13 +1155,123 @@ function ComprasView({
             disabled={busy === 'suggest'}
             className="shrink-0 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-700 disabled:opacity-50"
           >
-            {busy === 'suggest' ? 'Analizando…' : 'Generar sugerencias'}
+            {busy === 'suggest' ? 'Analizando…' : 'Generar sugerencias (todas)'}
           </button>
         </div>
         {suggestResult && (
           <p className="mt-4 rounded-lg border border-teal-200 bg-white px-4 py-3 text-sm font-semibold text-teal-800">
             {suggestResult}
           </p>
+        )}
+      </section>
+
+      {/* Sugerencias inteligentes por insumo */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
+              <Sparkles className="size-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-slate-950">Sugerencias Inteligentes de Reabastecimiento</h2>
+              <p className="text-sm text-slate-500">
+                Punto de reorden dinámico por insumo: stock actual, consumo promedio y lead time del proveedor,
+                ajustado a la demanda estacional.
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-bold text-violet-700 ring-1 ring-violet-100">
+              <Brain className="size-3.5" />
+              IA · +20–30% campaña Gliss/Lito
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={resetDemoSuggestions}
+              disabled={resetBusy}
+              title="Botón temporal de presentación: vuelve a bajar el stock de los insumos de muestra"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+            >
+              <RefreshCw className={`size-3.5 ${resetBusy ? 'animate-spin' : ''}`} />
+              {resetBusy ? 'Restableciendo…' : 'Restablecer demo'}
+            </button>
+            <button
+              onClick={loadSuggestions}
+              disabled={suggestionsLoading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <RefreshCw className={`size-3.5 ${suggestionsLoading ? 'animate-spin' : ''}`} />
+              {suggestionsLoading ? 'Analizando…' : 'Refrescar'}
+            </button>
+          </div>
+        </div>
+
+        {autoResult && (
+          <div className="mx-5 mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+            <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+            {autoResult}
+          </div>
+        )}
+
+        {suggestionsLoading ? (
+          <div className="p-10 text-center text-sm text-slate-500">Calculando sugerencias inteligentes…</div>
+        ) : suggestions.length === 0 ? (
+          <div className="p-10 text-center text-sm text-slate-500">
+            Ningún insumo requiere reorden en este momento.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {suggestions.map((s) => (
+              <div key={s.materialId} className="grid gap-3 px-5 py-4 xl:grid-cols-[1.3fr_1fr_1.6fr_auto] xl:items-center">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-bold text-slate-900">{s.name}</p>
+                    <UrgencyBadge risk={s.risk} />
+                  </div>
+                  <p className="font-mono text-xs text-slate-400">
+                    {s.sku} · {s.supplier ?? 'sin proveedor'}
+                  </p>
+                </div>
+                <div className="text-xs text-slate-600">
+                  <p>
+                    <span className="font-semibold text-slate-800">Comprar:</span> {fmtNum(s.quantity)} {s.unit}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-800">Costo:</span> {fmtMoney(s.quantity * s.unitCost)}{' '}
+                    · lead time {s.leadTimeDays} d
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-800">Cobertura:</span> {coverageLabel(s.coverageDays)}
+                  </p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs leading-5 text-slate-500">{s.rationale}</p>
+                  {s.seasonalFactor > 0.01 && (
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700 ring-1 ring-violet-100">
+                      <Sparkles className="size-3" />
+                      +{Math.round(s.seasonalFactor * 100)}% estacional · Gliss/Lito
+                    </span>
+                  )}
+                </div>
+                <div className="flex xl:justify-end">
+                  {s.hasOpenPo ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-400">
+                      <PackageCheck className="size-4" />
+                      OC abierta
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => createAutoOrder(s)}
+                      disabled={autoBusy === s.materialId}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white hover:bg-teal-700 disabled:opacity-50"
+                    >
+                      <PackagePlus className="size-4" />
+                      {autoBusy === s.materialId ? 'Generando…' : 'Generar Orden de Compra Automática'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 

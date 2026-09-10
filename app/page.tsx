@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, FlaskConical, LineChart, PackageSearch, Plus, ShieldCheck } from 'lucide-react'
+import { ArrowRight, FlaskConical, LineChart, PackageSearch, Plus, ShieldCheck, Warehouse } from 'lucide-react'
 
 type Module = {
   href: string
@@ -35,6 +35,15 @@ const modules: Module[] = [
     description:
       'Programa de producción autónomo: órdenes de fabricación generadas por demanda proyectada, turnos de 8 horas y consumo de insumos al completar.',
     icon: LineChart,
+    tag: 'Disponible',
+    available: true,
+  },
+  {
+    href: '/cedi',
+    title: 'Recepción en CEDI',
+    description:
+      'Escáner QR de lotes y posicionamiento sugerido en bodega (slotting): indica la ubicación exacta de la mercancía y confirma su colocación.',
+    icon: Warehouse,
     tag: 'Disponible',
     available: true,
   },

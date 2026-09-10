@@ -2,7 +2,7 @@ import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres'
 import { drizzle as drizzlePglite } from 'drizzle-orm/pglite'
 import { PGlite } from '@electric-sql/pglite'
 import { Pool } from 'pg'
-import { sql } from 'drizzle-orm'
+import { eq, inArray, sql } from 'drizzle-orm'
 import * as schema from './schema'
 
 /**
@@ -18,7 +18,7 @@ type DbClient = ReturnType<typeof createDb>
 
 // Bumpa este número cuando cambie el esquema/seed: fuerza a re-ejecutar el
 // bootstrap aunque el proceso anterior (dev/HMR) ya lo haya cacheado.
-const BOOTSTRAP_VERSION = 3
+const BOOTSTRAP_VERSION = 5
 const BOOTSTRAP_KEY = `ready_v${BOOTSTRAP_VERSION}` as const
 
 const globalForDb = globalThis as unknown as {
@@ -115,10 +115,46 @@ async function bootstrapQuality(): Promise<void> {
       status text NOT NULL,
       notes text,
       units integer NOT NULL DEFAULT 1000,
+      placement_status text NOT NULL DEFAULT 'pendiente_ubicar',
+      suggested_aisle text,
+      suggested_rack text,
+      suggested_level text,
+      slotting_criterion text,
+      distance_to_dispatch integer,
+      weight_kg numeric(12, 2) NOT NULL DEFAULT 0,
+      manufactured_at timestamptz,
+      expires_at timestamptz,
+      placed_at timestamptz,
       created_at timestamptz NOT NULL DEFAULT now()
     )
   `)
   await db.execute(sql`ALTER TABLE quality_batches ADD COLUMN IF NOT EXISTS units integer NOT NULL DEFAULT 1000`)
+  await db.execute(sql`ALTER TABLE quality_batches ADD COLUMN IF NOT EXISTS placement_status text NOT NULL DEFAULT 'pendiente_ubicar'`)
+  await db.execute(sql`ALTER TABLE quality_batches ADD COLUMN IF NOT EXISTS suggested_aisle text`)
+  await db.execute(sql`ALTER TABLE quality_batches ADD COLUMN IF NOT EXISTS suggested_rack text`)
+  await db.execute(sql`ALTER TABLE quality_batches ADD COLUMN IF NOT EXISTS suggested_level text`)
+  await db.execute(sql`ALTER TABLE quality_batches ADD COLUMN IF NOT EXISTS slotting_criterion text`)
+  await db.execute(sql`ALTER TABLE quality_batches ADD COLUMN IF NOT EXISTS distance_to_dispatch integer`)
+  await db.execute(sql`ALTER TABLE quality_batches ADD COLUMN IF NOT EXISTS weight_kg numeric(12, 2) NOT NULL DEFAULT 0`)
+  await db.execute(sql`ALTER TABLE quality_batches ADD COLUMN IF NOT EXISTS manufactured_at timestamptz`)
+  await db.execute(sql`ALTER TABLE quality_batches ADD COLUMN IF NOT EXISTS expires_at timestamptz`)
+  await db.execute(sql`ALTER TABLE quality_batches ADD COLUMN IF NOT EXISTS placed_at timestamptz`)
+
+  // Lotes demo del módulo CEDI (slotting). Idempotente para DBs nuevas o existentes.
+  await db.execute(sql`
+    INSERT INTO quality_batches
+      (batch_id, product, ph, density, status, notes, units, weight_kg,
+       manufactured_at, expires_at, placement_status, suggested_aisle,
+       suggested_rack, suggested_level, slotting_criterion, distance_to_dispatch)
+    VALUES
+      ('LOTE-GLISS-2026-01', 'Detergente Gliss', 8.40, 1.022, 'approved', NULL, 300, 1500.00,
+       now() - interval '2 days', now() + interval '300 days', 'pendiente_ubicar', 'A', '02', '1',
+       'Política FIFO · Cercano a salida de despachos', 18),
+      ('LOTE-LITO-2026-02', 'Detergente Lito', 8.10, 1.015, 'approved', NULL, 240, 1200.00,
+       now() - interval '1 day', now() + interval '300 days', 'pendiente_ubicar', 'A', '02', '1',
+       'Política FIFO · Cercano a salida de despachos', 18)
+    ON CONFLICT (batch_id) DO NOTHING
+  `)
 
   const existing = (await db.execute(
     sql`SELECT count(*)::int AS count FROM quality_batches`,
@@ -203,9 +239,56 @@ async function bootstrapLogistics(): Promise<void> {
   const existing = (await db.execute(
     sql`SELECT count(*)::int AS count FROM materials`,
   )) as unknown as { rows: { count: number }[] }
-  if ((existing.rows?.[0]?.count ?? 0) > 0) return
+  if ((existing.rows?.[0]?.count ?? 0) === 0) {
+    await seedLogistics()
+  }
 
-  await seedLogistics()
+  await applyDemoReorderAdjust()
+}
+
+/**
+ * Ajuste de muestra (idempotente): deja a unos cuantos insumos SIN OC abierta
+ * por debajo de su punto de reorden, para que el panel de "Sugerencias
+ * inteligentes" muestre datos de prueba también sobre bases ya sembradas.
+ * El marcador en `reference` evita re-aplicar los ajustes en cada boot.
+ */
+export const DEMO_ADJUST_REF = 'DEMO-REORDEN-2026'
+
+export async function applyDemoReorderAdjust(): Promise<void> {
+  const applied = (await db.execute(
+    sql`SELECT count(*)::int AS count FROM inventory_movements WHERE reference = ${DEMO_ADJUST_REF}`,
+  )) as unknown as { rows: { count: number }[] }
+  if ((applied.rows?.[0]?.count ?? 0) !== 0) return
+
+  const testTargets = [
+    { sku: 'MP-SLES-002', stock: '180.00' },
+    { sku: 'MP-FRAG-005', stock: '18.00' },
+    { sku: 'EN-BOT1L-010', stock: '1500.00' },
+    { sku: 'ET-ETIQ-012', stock: '1050.00' },
+  ]
+  const current = await db
+    .select({ id: schema.materials.id, sku: schema.materials.sku, stock: schema.materials.stock })
+    .from(schema.materials)
+    .where(inArray(schema.materials.sku, testTargets.map((t) => t.sku)))
+  for (const target of testTargets) {
+    const row = current.find((r) => r.sku === target.sku)
+    if (!row) continue
+    const prev = Number(row.stock) || 0
+    const next = Number(target.stock)
+    const delta = next - prev
+    await db
+      .update(schema.materials)
+      .set({ stock: target.stock })
+      .where(eq(schema.materials.sku, target.sku))
+    await db.insert(schema.inventoryMovements).values({
+      materialId: row.id,
+      type: 'ajuste',
+      quantity: delta.toFixed(2),
+      balanceAfter: next.toFixed(2),
+      reason: 'Conteo físico: ajuste de stock de prueba',
+      reference: DEMO_ADJUST_REF,
+    })
+  }
 }
 
 /** PRNG determinista para que el seed sea reproducible. */
