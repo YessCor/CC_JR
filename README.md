@@ -39,6 +39,28 @@ Con esa variable presente, la app se conecta a ese PostgreSQL vía `node-postgre
 en lugar de PGlite. La tabla `quality_batches` se crea automáticamente en el
 primer arranque (`ensureDb()` en [lib/db/index.ts](lib/db/index.ts)).
 
+## Despliegue en Vercel
+
+La app está lista para subirse a Vercel con las siguientes consideraciones:
+
+1. **Base de datos**: en Vercel obligatorio definir la variable de entorno
+   `DATABASE_URL`. PGlite persiste en un archivo local (`./.pglite`) y el
+   sistema de archivos de las funciones serverless de Vercel es efímero y de
+   solo lectura, así que sin `DATABASE_URL` la app no podrá escribir datos en
+   producción. Usa [Neon](https://neon.tech), Supabase, Vercel Postgres o
+   cualquier PostgreSQL compatible.
+   - Vercel → proyecto → **Settings → Environment Variables → DATABASE_URL**.
+2. **Node**: `package.json` declara `engines.node >= 20.9.0` (requerido por
+   Next.js 16). Vercel la respeta automáticamente.
+3. **Bundling**: `next.config.mjs` excluye `@electric-sql/pglite` del bundle de
+   servidor vía `serverExternalPackages` (su WASM no se empaqueta en la función
+   serverless); `pg` ya es external por defecto.
+4. Al primer arranque, `ensureDb()` crea las tablas y siembra los datos demo
+   automáticamente en el PostgreSQL configurado, así que no hace falta ejecutar
+   migraciones ni un comando de seed.
+5. Importa el repositorio en Vercel (detecta `pnpm` automáticamente por el
+   `pnpm-lock.yaml`). Un solo deploy cubre página, API y base de datos.
+
 ## Estructura
 
 | Ruta | Descripción |
