@@ -6,20 +6,28 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
+  Activity,
   Bell,
+  Bot,
   CheckCircle2,
   ChevronDown,
   ClipboardCheck,
+  Cpu,
   FlaskConical,
+  Gauge,
   LayoutDashboard,
+  Loader2,
   LockKeyhole,
   Menu,
   PackageCheck,
+  Scale,
   Search,
   ShieldAlert,
   SlidersHorizontal,
+  Sparkles,
   Truck,
   XCircle,
+  Zap,
 } from 'lucide-react'
 
 type Batch = {
@@ -76,12 +84,204 @@ function HistoryDashboard({ batches, search, setSearch }: { batches: Batch[]; se
   return <div className="space-y-6"><ModuleHeader eyebrow="Trazabilidad documental" title="Historial de lotes" description="Consulta cronológica de capturas, resultados y estados de calidad." icon={PackageCheck} tone="slate" /><div className="grid gap-4 sm:grid-cols-3"><MetricCard label="Registros" value={String(batches.length)} helper="capturas totales" /><MetricCard label="Aprobados" value={String(approved)} helper={batches.length ? `${Math.round((approved / batches.length) * 100)}% del total` : '—'} /><MetricCard label="Bloqueados" value={String(blocked)} helper="PNC" tone="amber" /></div><section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5"><div><h3 className="font-bold text-slate-950">Registro de análisis</h3><p className="mt-1 text-sm text-slate-500">Ordenado del más reciente al más antiguo.</p></div><div className="relative"><Search className="absolute left-3 top-2.5 size-4 text-slate-400" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por lote o producto" className="h-9 w-56 rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-teal-500" /></div></div><div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left"><thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-400"><tr><th className="px-5 py-3">Lote</th><th className="px-4 py-3">Producto</th><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Resultado</th><th className="px-4 py-3">Estado</th></tr></thead><tbody className="divide-y divide-slate-100">{rows.map((batch) => <tr key={`history-${batch.id}`} className="hover:bg-slate-50"><td className="px-5 py-4 font-mono text-sm font-bold text-slate-900">{batch.id}</td><td className="px-4 py-4 text-sm text-slate-700">{batch.product}</td><td className="px-4 py-4 text-xs text-slate-500">{batch.date}</td><td className="px-4 py-4 text-xs font-semibold text-slate-600">{batch.value}</td><td className="px-4 py-4"><StatusPill status={batch.status} /></td></tr>)}</tbody></table></div></section></div>
 }
 
+function AutoScanModal({ isOpen, onClose, onComplete }: { isOpen: boolean; onClose: () => void; onComplete: (batch: Batch) => void }) {
+  const [step, setStep] = useState(0)
+  const [progress, setProgress] = useState(0)
+  const [currentAction, setCurrentAction] = useState('')
+
+  const startScan = () => {
+    setStep(1)
+    setProgress(15)
+    setCurrentAction('Identificando contenedor y SKU por cámara estroboscópica...')
+
+    setTimeout(() => {
+      setStep(2)
+      setProgress(40)
+      setCurrentAction('Sonda electroquímica sumergida. Midiendo pH en línea...')
+    }, 1200)
+
+    setTimeout(() => {
+      setStep(3)
+      setProgress(68)
+      setCurrentAction('Celda de carga y caudalímetro de coriolis. Calculando densidad y peso neto...')
+    }, 2400)
+
+    setTimeout(() => {
+      setStep(4)
+      setProgress(90)
+      setCurrentAction('Analizando espectrometría UV/Vis. Validando homogeneidad del lote...')
+    }, 3600)
+
+    setTimeout(() => {
+      setStep(5)
+      setProgress(100)
+      setCurrentAction('¡Inspección autónoma finalizada! Todos los sensores confirman Producto Conforme.')
+    }, 4800)
+  }
+
+  if (!isOpen) return null
+
+  const generatedBatchId = `L-AUT-${Math.floor(1000 + Math.random() * 9000)}`
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-teal-500/30 bg-slate-900 text-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/80 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 text-slate-950 shadow-md">
+              <Bot className="size-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-white">Escaneo Automático de Calidad</h3>
+                <span className="flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
+                  <Zap className="size-3" /> Sensores IoT + IA
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">Inspección continua sin intervención humana</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white">
+            <XCircle className="size-5" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {step === 0 ? (
+            <div className="py-6 text-center space-y-4">
+              <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-teal-500/10 ring-8 ring-teal-500/5 text-teal-400">
+                <Cpu className="size-10 animate-pulse" />
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-white">Inspección Autónoma en Línea de Envasado</h4>
+                <p className="mt-1 text-sm text-slate-400 max-w-md mx-auto">
+                  El sistema capturará automáticamente parámetros de laboratorio midiendo pH, densidad y peso neto en cinta transportadora sin operadores.
+                </p>
+              </div>
+              <button
+                onClick={startScan}
+                className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3.5 text-sm font-bold text-slate-950 shadow-lg shadow-teal-500/25 transition hover:scale-105 active:scale-95"
+              >
+                <Sparkles className="size-5" /> Iniciar Escaneo en Tiempo Real
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="flex items-center gap-2 text-teal-400">
+                    {step < 5 ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4 text-emerald-400" />}
+                    {currentAction}
+                  </span>
+                  <span className="font-mono text-slate-300">{progress}%</span>
+                </div>
+                <div className="h-3 w-full overflow-hidden rounded-full bg-slate-800 p-0.5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-teal-500 via-emerald-400 to-emerald-300 transition-all duration-500"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className={`rounded-2xl border p-4 transition ${step >= 2 ? 'border-teal-500/40 bg-teal-950/30' : 'border-slate-800 bg-slate-900/50 opacity-40'}`}>
+                  <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold">
+                    <FlaskConical className="size-4 text-teal-400" /> Sensor pH
+                  </div>
+                  <p className="mt-2 text-2xl font-bold font-mono text-white">
+                    {step >= 2 ? '8.40 pH' : '—'}
+                  </p>
+                  <p className="mt-1 text-[11px] text-emerald-400 font-medium">
+                    {step >= 2 ? '✓ Rango óptimo (6.5-10)' : 'Esperando celda...'}
+                  </p>
+                </div>
+
+                <div className={`rounded-2xl border p-4 transition ${step >= 3 ? 'border-teal-500/40 bg-teal-950/30' : 'border-slate-800 bg-slate-900/50 opacity-40'}`}>
+                  <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold">
+                    <Gauge className="size-4 text-teal-400" /> Densidad
+                  </div>
+                  <p className="mt-2 text-2xl font-bold font-mono text-white">
+                    {step >= 3 ? '1.025 g/mL' : '—'}
+                  </p>
+                  <p className="mt-1 text-[11px] text-emerald-400 font-medium">
+                    {step >= 3 ? '✓ Norma 1.025 ±0.01' : 'Esperando sensor...'}
+                  </p>
+                </div>
+
+                <div className={`rounded-2xl border p-4 transition ${step >= 4 ? 'border-teal-500/40 bg-teal-950/30' : 'border-slate-800 bg-slate-900/50 opacity-40'}`}>
+                  <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold">
+                    <Scale className="size-4 text-teal-400" /> Peso Neto
+                  </div>
+                  <p className="mt-2 text-2xl font-bold font-mono text-white">
+                    {step >= 4 ? '3.015 kg' : '—'}
+                  </p>
+                  <p className="mt-1 text-[11px] text-emerald-400 font-medium">
+                    {step >= 4 ? '✓ Masa correcta' : 'Esperando faja...'}
+                  </p>
+                </div>
+              </div>
+
+              {step === 5 && (
+                <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-emerald-500 p-2 text-slate-950 shrink-0">
+                      <CheckCircle2 className="size-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-emerald-300">PRODUCTO 100% CONFORME</h4>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        El lote <span className="font-mono font-bold text-white">{generatedBatchId}</span> ha sido verificado y aprobado de forma autónoma por la línea de inspección IoT.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between border-t border-slate-800 bg-slate-950/80 px-6 py-4">
+          <span className="text-xs text-slate-400 flex items-center gap-1.5">
+            <Activity className="size-3.5 text-emerald-400 animate-pulse" /> Sensores IoT Planta Norte
+          </span>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800">
+              Cerrar
+            </button>
+            {step === 5 && (
+              <button
+                onClick={() => {
+                  onComplete({
+                    id: generatedBatchId,
+                    product: 'Detergente líquido 3L',
+                    date: 'Ahora · Escaneo IoT',
+                    deviation: '—',
+                    value: 'pH 8.40 · 1.025 g/mL · 3.015 kg',
+                    status: 'Aprobado',
+                    notes: 'Dictamen 100% automático por sensores de celda fotométrica e inspección en línea sin operador.',
+                  })
+                  onClose()
+                }}
+                className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20"
+              >
+                <CheckCircle2 className="size-4" /> Registrar Lote Aprobado
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function QualityForm({ onSubmit }: { onSubmit: (batch: Batch) => void }) {
   const [id, setId] = useState('L-240813-02')
   const [product, setProduct] = useState('Detergente líquido 3L')
   const [ph, setPh] = useState('8.4')
   const [density, setDensity] = useState('1.028')
   const [notes, setNotes] = useState('')
+  const [scanModalOpen, setScanModalOpen] = useState(false)
+
   const result = useMemo(() => {
     const validPh = Number(ph) >= 6.5 && Number(ph) <= 10
     const validDensity = Number(density) >= 0.98 && Number(density) <= 1.04
@@ -89,22 +289,45 @@ function QualityForm({ onSubmit }: { onSubmit: (batch: Batch) => void }) {
   }, [ph, density])
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
-        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">Nueva captura</p><h2 className="mt-1 text-lg font-bold text-slate-950">Resultado de análisis</h2></div>
-        <div className="rounded-lg bg-teal-50 p-2 text-teal-700"><FlaskConical className="size-5" /></div>
-      </div>
-      <div className="space-y-5 px-6 py-5">
-        <div className="grid gap-4 sm:grid-cols-2"><div><label htmlFor="batch-id" className="mb-2 block text-sm font-semibold text-slate-700">ID de lote</label><div className="relative"><Search className="absolute left-3 top-3 size-4 text-slate-400" /><input id="batch-id" value={id} onChange={(e) => setId(e.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm font-medium outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100" /></div></div><div><label htmlFor="product" className="mb-2 block text-sm font-semibold text-slate-700">Producto</label><select id="product" value={product} onChange={(e) => setProduct(e.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"><option>Detergente líquido 3L</option><option>Suavizante floral 1L</option><option>Detergente polvo 500g</option></select></div></div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div><label htmlFor="ph" className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700">pH <span className="font-normal text-slate-400">Rango: 6.5 – 10.0</span></label><input id="ph" type="number" step="0.1" value={ph} onChange={(e) => setPh(e.target.value)} className={`h-10 w-full rounded-lg border bg-slate-50 px-3 text-sm font-medium outline-none focus:ring-2 ${Number(ph) >= 6.5 && Number(ph) <= 10 ? 'border-slate-200 focus:border-teal-500 focus:ring-teal-100' : 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100'}`} /></div>
-          <div><label htmlFor="density" className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700">Densidad <span className="font-normal text-slate-400">0.98 – 1.04 g/mL</span></label><input id="density" type="number" step="0.001" value={density} onChange={(e) => setDensity(e.target.value)} className={`h-10 w-full rounded-lg border bg-slate-50 px-3 text-sm font-medium outline-none focus:ring-2 ${Number(density) >= 0.98 && Number(density) <= 1.04 ? 'border-slate-200 focus:border-teal-500 focus:ring-teal-100' : 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100'}`} /></div>
+    <>
+      <AutoScanModal
+        isOpen={scanModalOpen}
+        onClose={() => setScanModalOpen(false)}
+        onComplete={(batch) => onSubmit(batch)}
+      />
+
+      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">Captura e Inspección</p>
+            <h2 className="mt-1 text-lg font-bold text-slate-950">Resultado de análisis</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setScanModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-teal-700 via-emerald-600 to-teal-800 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:opacity-95 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <Sparkles className="size-4 animate-pulse text-emerald-300" />
+              Escaneo automático (IoT)
+            </button>
+            <div className="rounded-lg bg-teal-50 p-2 text-teal-700">
+              <FlaskConical className="size-5" />
+            </div>
+          </div>
         </div>
-        <div><label htmlFor="notes" className="mb-2 block text-sm font-semibold text-slate-700">Observaciones <span className="font-normal text-slate-400">(opcional)</span></label><textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Describe la muestra, equipo o cualquier hallazgo..." className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100" /></div>
-        <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${result ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}><div className={`rounded-full p-1.5 ${result ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{result ? <CheckCircle2 className="size-4" /> : <XCircle className="size-4" />}</div><div><p className={`text-sm font-bold ${result ? 'text-emerald-800' : 'text-red-800'}`}>{result ? 'Lote aprobado' : 'Producto No Conforme (PNC)'}</p><p className="text-xs text-slate-600">{result ? 'Todos los parámetros están dentro de rango.' : 'El lote será bloqueado automáticamente.'}</p></div></div>
-        <button type="button" onClick={() => onSubmit({ id, product, notes, date: 'Ahora · captura manual', deviation: result ? '—' : 'Parámetro fuera de rango', value: `pH ${ph} · ${density} g/mL`, status: result ? 'Aprobado' : 'Bloqueado' })} className="h-11 w-full rounded-lg bg-slate-950 text-sm font-bold text-white transition hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2">Guardar resultado</button>
-      </div>
-    </section>
+        <div className="space-y-5 px-6 py-5">
+          <div className="grid gap-4 sm:grid-cols-2"><div><label htmlFor="batch-id" className="mb-2 block text-sm font-semibold text-slate-700">ID de lote</label><div className="relative"><Search className="absolute left-3 top-3 size-4 text-slate-400" /><input id="batch-id" value={id} onChange={(e) => setId(e.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm font-medium outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100" /></div></div><div><label htmlFor="product" className="mb-2 block text-sm font-semibold text-slate-700">Producto</label><select id="product" value={product} onChange={(e) => setProduct(e.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"><option>Detergente líquido 3L</option><option>Suavizante floral 1L</option><option>Detergente polvo 500g</option></select></div></div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div><label htmlFor="ph" className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700">pH <span className="font-normal text-slate-400">Rango: 6.5 – 10.0</span></label><input id="ph" type="number" step="0.1" value={ph} onChange={(e) => setPh(e.target.value)} className={`h-10 w-full rounded-lg border bg-slate-50 px-3 text-sm font-medium outline-none focus:ring-2 ${Number(ph) >= 6.5 && Number(ph) <= 10 ? 'border-slate-200 focus:border-teal-500 focus:ring-teal-100' : 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100'}`} /></div>
+            <div><label htmlFor="density" className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700">Densidad <span className="font-normal text-slate-400">0.98 – 1.04 g/mL</span></label><input id="density" type="number" step="0.001" value={density} onChange={(e) => setDensity(e.target.value)} className={`h-10 w-full rounded-lg border bg-slate-50 px-3 text-sm font-medium outline-none focus:ring-2 ${Number(density) >= 0.98 && Number(density) <= 1.04 ? 'border-slate-200 focus:border-teal-500 focus:ring-teal-100' : 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100'}`} /></div>
+          </div>
+          <div><label htmlFor="notes" className="mb-2 block text-sm font-semibold text-slate-700">Observaciones <span className="font-normal text-slate-400">(opcional)</span></label><textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Describe la muestra, equipo o cualquier hallazgo..." className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100" /></div>
+          <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${result ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}><div className={`rounded-full p-1.5 ${result ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{result ? <CheckCircle2 className="size-4" /> : <XCircle className="size-4" />}</div><div><p className={`text-sm font-bold ${result ? 'text-emerald-800' : 'text-red-800'}`}>{result ? 'Lote aprobado' : 'Producto No Conforme (PNC)'}</p><p className="text-xs text-slate-600">{result ? 'Todos los parámetros están dentro de rango.' : 'El lote será bloqueado automáticamente.'}</p></div></div>
+          <button type="button" onClick={() => onSubmit({ id, product, notes, date: 'Ahora · captura manual', deviation: result ? '—' : 'Parámetro fuera de rango', value: `pH ${ph} · ${density} g/mL`, status: result ? 'Aprobado' : 'Bloqueado' })} className="h-11 w-full rounded-lg bg-slate-950 text-sm font-bold text-white transition hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2">Guardar resultado manual</button>
+        </div>
+      </section>
+    </>
   )
 }
 
