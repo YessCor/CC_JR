@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, FlaskConical, LineChart, PackageSearch, Plus, ShieldCheck, Warehouse } from 'lucide-react'
+import { ArrowRight, FlaskConical, LineChart, PackageSearch, Plus, Warehouse } from 'lucide-react'
 
 type Module = {
   href: string
@@ -46,14 +46,6 @@ const modules: Module[] = [
     icon: Warehouse,
     tag: 'Disponible',
     available: true,
-  },
-  {
-    href: '#',
-    title: 'Auditorías y cumplimiento',
-    description: 'Checklist de inspecciones, hallazgos y seguimiento de acciones correctivas.',
-    icon: ShieldCheck,
-    tag: 'Próximamente',
-    available: false,
   },
 ]
 
