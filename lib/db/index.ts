@@ -16,9 +16,14 @@ import * as schema from './schema'
 
 type DbClient = ReturnType<typeof createDb>
 
+// Bumpa este número cuando cambie el esquema/seed: fuerza a re-ejecutar el
+// bootstrap aunque el proceso anterior (dev/HMR) ya lo haya cacheado.
+const BOOTSTRAP_VERSION = 3
+const BOOTSTRAP_KEY = `ready_v${BOOTSTRAP_VERSION}` as const
+
 const globalForDb = globalThis as unknown as {
   db?: DbClient
-  ready?: Promise<void>
+  [BOOTSTRAP_KEY]?: Promise<void>
 }
 
 function createDb() {
@@ -53,19 +58,46 @@ export const db: DbClient = new Proxy({} as DbClient, {
  * Idempotent and executed at most once per process.
  */
 export function ensureDb(): Promise<void> {
-  if (!globalForDb.ready) {
-    globalForDb.ready = bootstrap().catch((error) => {
+  if (!globalForDb[BOOTSTRAP_KEY]) {
+    globalForDb[BOOTSTRAP_KEY] = bootstrap().catch((error) => {
       // Don't cache a failed bootstrap: let the next request try again.
-      globalForDb.ready = undefined
+      globalForDb[BOOTSTRAP_KEY] = undefined
       throw error
     })
   }
-  return globalForDb.ready
+  return globalForDb[BOOTSTRAP_KEY] as Promise<void>
 }
 
 async function bootstrap(): Promise<void> {
   await bootstrapQuality()
   await bootstrapLogistics()
+  await bootstrapProduction()
+}
+
+// ---------------------------------------------------------------------------
+// Programa de producción y turnos
+// ---------------------------------------------------------------------------
+
+async function bootstrapProduction(): Promise<void> {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS production_orders (
+      id bigserial PRIMARY KEY,
+      code text NOT NULL UNIQUE,
+      product text NOT NULL,
+      units integer NOT NULL,
+      line text NOT NULL,
+      shift text NOT NULL,
+      scheduled_date timestamptz NOT NULL,
+      status text NOT NULL DEFAULT 'programado',
+      priority integer NOT NULL DEFAULT 2,
+      origin text NOT NULL DEFAULT 'autonomo',
+      material_available boolean NOT NULL DEFAULT true,
+      rationale text,
+      completed_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `)
+  await db.execute(sql`ALTER TABLE production_orders ADD COLUMN IF NOT EXISTS material_available boolean NOT NULL DEFAULT true`)
 }
 
 // ---------------------------------------------------------------------------

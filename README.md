@@ -9,6 +9,10 @@ Módulos:
   validación automática de lotes, cuarentena / PNC e historial.
 - **Logística e inventarios** (`/logistica`) — inventario de insumos, kardex,
   motor predictivo de demanda, órdenes de compra automáticas y despachos al CEDI.
+- **Producción y turnos** (`/produccion`) — programa de producción autónomo a 7
+  días basado en la demanda proyectada y los lotes aprobados, distribuido en
+  turnos/líneas; al completar una orden se consume el BOM del inventario y se
+  crea el lote aprobado en calidad.
 
 ## Puesta en marcha
 
@@ -42,13 +46,17 @@ primer arranque (`ensureDb()` en [lib/db/index.ts](lib/db/index.ts)).
 | `/` — [app/page.tsx](app/page.tsx) | Página principal: selector de módulos. Agrega módulos nuevos en el array `modules` |
 | `/calidad` — [app/calidad/page.tsx](app/calidad/page.tsx) | Módulo de control de calidad |
 | `/logistica` — [app/logistica/page.tsx](app/logistica/page.tsx) | Módulo de logística e inventarios |
+| `/produccion` — [app/produccion/page.tsx](app/produccion/page.tsx) | Módulo de producción y turnos |
 | [components/quality-dashboard.tsx](components/quality-dashboard.tsx) | UI de calidad: resumen, captura, cuarentena, historial |
 | [components/logistics-dashboard.tsx](components/logistics-dashboard.tsx) | UI de logística: resumen, inventario, movimientos, órdenes de compra, despachos |
+| [components/production-dashboard.tsx](components/production-dashboard.tsx) | UI de producción: programa autónomo, gantt de turnos, órdenes |
 | [app/api/batches/route.ts](app/api/batches/route.ts) | API de calidad: `GET` lista, `POST` registra y valida un lote, `PATCH` cambia el estado |
+| [app/api/produccion/route.ts](app/api/produccion/route.ts) | API de producción: `GET` programa (auto-genera si está vacío), `POST` regenera, `PATCH` transición de estado (completar consume BOM y crea lote) |
 | [app/api/logistica/](app/api/logistica/) | API de logística (ver abajo) |
 | [lib/forecast.ts](lib/forecast.ts) | Motor predictivo: media móvil ponderada + tendencia por regresión lineal |
 | [lib/logistics.ts](lib/logistics.ts) | Helpers compartidos (enriquecer material con el forecast, códigos, whitelists) |
-| [lib/db/schema.ts](lib/db/schema.ts) | Esquema Drizzle: `quality_batches`, `materials`, `inventory_movements`, `purchase_orders`, `shipments` |
+| [lib/production.ts](lib/production.ts) | Motor de producción: BOM de productos, turnos, líneas y generador autónomo del programa |
+| [lib/db/schema.ts](lib/db/schema.ts) | Esquema Drizzle: `quality_batches`, `materials`, `inventory_movements`, `purchase_orders`, `shipments`, `production_orders` |
 | [lib/db/index.ts](lib/db/index.ts) | Conexión (PostgreSQL o PGlite) + creación/seed de tablas |
 
 ### API de logística

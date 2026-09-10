@@ -30,12 +30,13 @@ const modules: Module[] = [
     available: true,
   },
   {
-    href: '#',
-    title: 'Indicadores de planta',
-    description: 'Tableros de producción, rendimiento por turno y comparativos mensuales.',
+    href: '/produccion',
+    title: 'Producción y turnos',
+    description:
+      'Programa de producción autónomo: órdenes de fabricación generadas por demanda proyectada, turnos de 8 horas y consumo de insumos al completar.',
     icon: LineChart,
-    tag: 'Próximamente',
-    available: false,
+    tag: 'Disponible',
+    available: true,
   },
   {
     href: '#',

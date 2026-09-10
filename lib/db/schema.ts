@@ -89,3 +89,24 @@ export const shipments = pgTable('shipments', {
 
 export type Shipment = typeof shipments.$inferSelect
 export type NewShipment = typeof shipments.$inferInsert
+
+/** Órdenes de fabricación del programa de producción y turnos (mayormente autónomo). */
+export const productionOrders = pgTable('production_orders', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  code: text('code').notNull().unique(), // OF-AAAA-NNN
+  product: text('product').notNull(),
+  units: integer('units').notNull(),
+  line: text('line').notNull(), // A | B
+  shift: text('shift').notNull(), // T1 | T2 | T3
+  scheduledDate: timestamp('scheduled_date', { withTimezone: true }).notNull(),
+  status: text('status').notNull().default('programado'),
+  priority: integer('priority').notNull().default(2),
+  origin: text('origin').notNull().default('autonomo'), // autonomo | manual
+  materialAvailable: boolean('material_available').notNull().default(true),
+  rationale: text('rationale'),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export type ProductionOrder = typeof productionOrders.$inferSelect
+export type NewProductionOrder = typeof productionOrders.$inferInsert
